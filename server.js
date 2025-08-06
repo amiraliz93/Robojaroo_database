@@ -55,33 +55,45 @@ app.get('/', (req, res) => {
         // --- Get total count AFTER filtering but BEFORE pagination ---
         const total_count = items.length;
 
-        // --- 2. Sorting (IMPROVED LOGIC) ---
+        // --- 2. Sorting (ULTRA-ROBUST LOGIC) ---
         const { order_by = 'date_modified', order = 'desc' } = req.query;
+        
         items.sort((a, b) => {
             const valA = a[order_by];
             const valB = b[order_by];
 
-            if (valA === undefined || valB === undefined) return 0;
+            // Handle null/undefined values by pushing them to the end of the list
+            if (valA == null && valB == null) return 0;
+            if (valA == null) return 1;
+            if (valB == null) return -1;
 
-            // Use localeCompare for robust string sorting (especially for non-English text)
-            if (typeof valA === 'string' && typeof valB === 'string') {
-                if (order === 'asc') {
-                    // 'fa' specifies the locale for Persian for correct sorting
-                    return valA.localeCompare(valB, 'fa');
-                } else {
-                    return valB.localeCompare(valA, 'fa');
-                }
-            }
+            // Use specific logic for different data types
+            switch (order_by) {
+                case 'price':
+                    // Use simple numeric comparison for price
+                    return order === 'asc' ? valA - valB : valB - valA;
+                
+                case 'title':
+                case 'brand':
+                case 'id':
+                    // Use localeCompare for robust string sorting (especially for Persian)
+                    if (order === 'asc') {
+                        return String(valA).localeCompare(String(valB), 'fa', { sensitivity: 'base' });
+                    } else {
+                        return String(valB).localeCompare(String(valA), 'fa', { sensitivity: 'base' });
+                    }
 
-            // Fallback for numbers and other types
-            if (valA < valB) {
-                return order === 'asc' ? -1 : 1;
+                case 'date_modified':
+                default:
+                    // Default comparison works for ISO date strings and other values
+                    if (valA < valB) {
+                        return order === 'asc' ? -1 : 1;
+                    }
+                    if (valA > valB) {
+                        return order === 'asc' ? 1 : -1;
+                    }
+                    return 0;
             }
-            if (valA > valB) {
-                return order === 'asc' ? 1 : -1;
-            }
-            
-            return 0;
         });
 
         // --- 3. Pagination ---
