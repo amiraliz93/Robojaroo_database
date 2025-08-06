@@ -29,11 +29,14 @@ app.get('/', (req, res) => {
         
         // --- Data Transformation and Formatting ---
         // Filter out any non-product entries.
-        let items = originalItems.filter(item => item.id !== undefined);
+        let items = originalItems.filter(item => item.id !== undefined && item.title !== undefined);
 
         // Map over the items to ensure the date format is correct.
         items = items.map(item => {
-            const correctlyFormattedDate = new Date(item.date_modified).toISOString();
+            // Ensure date_modified exists and is valid before converting
+            const date = item.date_modified ? new Date(item.date_modified) : new Date();
+            const correctlyFormattedDate = !isNaN(date) ? date.toISOString() : new Date().toISOString();
+            
             return {
                 ...item,
                 date_modified: correctlyFormattedDate
@@ -55,45 +58,29 @@ app.get('/', (req, res) => {
         // --- Get total count AFTER filtering but BEFORE pagination ---
         const total_count = items.length;
 
-        // --- 2. Sorting (ULTRA-ROBUST LOGIC) ---
+        // --- 2. Sorting (FINAL ROBUST LOGIC) ---
         const { order_by = 'date_modified', order = 'desc' } = req.query;
         
         items.sort((a, b) => {
-            const valA = a[order_by];
-            const valB = b[order_by];
+            const field = order_by;
+            const direction = order === 'asc' ? 1 : -1;
 
-            // Handle null/undefined values by pushing them to the end of the list
-            if (valA == null && valB == null) return 0;
+            const valA = a[field];
+            const valB = b[field];
+
+            // Handle null or undefined values by pushing them to the end
             if (valA == null) return 1;
             if (valB == null) return -1;
 
-            // Use specific logic for different data types
-            switch (order_by) {
-                case 'price':
-                    // Use simple numeric comparison for price
-                    return order === 'asc' ? valA - valB : valB - valA;
-                
-                case 'title':
-                case 'brand':
-                case 'id':
-                    // Use localeCompare for robust string sorting (especially for Persian)
-                    if (order === 'asc') {
-                        return String(valA).localeCompare(String(valB), 'fa', { sensitivity: 'base' });
-                    } else {
-                        return String(valB).localeCompare(String(valA), 'fa', { sensitivity: 'base' });
-                    }
-
-                case 'date_modified':
-                default:
-                    // Default comparison works for ISO date strings and other values
-                    if (valA < valB) {
-                        return order === 'asc' ? -1 : 1;
-                    }
-                    if (valA > valB) {
-                        return order === 'asc' ? 1 : -1;
-                    }
-                    return 0;
+            // For numeric values (like price), perform a numeric sort.
+            if (typeof valA === 'number' && typeof valB === 'number') {
+                return (valA - valB) * direction;
             }
+            
+            // For all other types (including ISO date strings and Persian text),
+            // use localeCompare which is powerful enough to handle them correctly.
+            // The 'numeric: true' option helps sort string IDs like "10" and "2" correctly.
+            return String(valA).localeCompare(String(valB), 'fa-IR', { numeric: true, sensitivity: 'base' }) * direction;
         });
 
         // --- 3. Pagination ---
