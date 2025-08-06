@@ -1,0 +1,14 @@
+{
+  "name": "mu-chat-api-server",
+  "version": "1.0.0",
+  "description": "A simple API server compatible with mu.chat specifications.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
