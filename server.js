@@ -28,19 +28,14 @@ app.get('/', (req, res) => {
         }
         
         // --- Data Transformation and Formatting ---
-        // Filter out any non-product entries. Since you've renamed 'sku' to 'id', we'll check for that.
+        // Filter out any non-product entries.
         let items = originalItems.filter(item => item.id !== undefined);
 
-        // Now, map over the items to ensure the date format is correct.
-        // This is the only transformation we are doing now.
+        // Map over the items to ensure the date format is correct.
         items = items.map(item => {
-            // Take the existing date_modified value and re-format it to the exact ISO string.
-            // This guarantees it will always be compliant.
             const correctlyFormattedDate = new Date(item.date_modified).toISOString();
-
-            // Return the original item, but with the correctly formatted date.
             return {
-                ...item, // This copies all original fields (id, title, description, etc.)
+                ...item,
                 date_modified: correctlyFormattedDate
             };
         });
@@ -60,7 +55,7 @@ app.get('/', (req, res) => {
         // --- Get total count AFTER filtering but BEFORE pagination ---
         const total_count = items.length;
 
-        // --- 2. Sorting ---
+        // --- 2. Sorting (IMPROVED LOGIC) ---
         const { order_by = 'date_modified', order = 'desc' } = req.query;
         items.sort((a, b) => {
             const valA = a[order_by];
@@ -68,12 +63,24 @@ app.get('/', (req, res) => {
 
             if (valA === undefined || valB === undefined) return 0;
 
+            // Use localeCompare for robust string sorting (especially for non-English text)
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                if (order === 'asc') {
+                    // 'fa' specifies the locale for Persian for correct sorting
+                    return valA.localeCompare(valB, 'fa');
+                } else {
+                    return valB.localeCompare(valA, 'fa');
+                }
+            }
+
+            // Fallback for numbers and other types
             if (valA < valB) {
                 return order === 'asc' ? -1 : 1;
             }
             if (valA > valB) {
                 return order === 'asc' ? 1 : -1;
             }
+            
             return 0;
         });
 
